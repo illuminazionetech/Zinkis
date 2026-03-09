@@ -1,0 +1,32 @@
+{
+  "translation": {
+    "app_title": "Zinkis - Location Intelligence",
+    "search": "Cerca",
+    "address": "Indirizzo",
+    "sector": "Settore Commerciale",
+    "radius": "Raggio (metri)",
+    "competitors": "Concorrenti",
+    "settings": "Impostazioni",
+    "api_keys": "Chiavi API",
+    "google_api_key": "Google Maps API Key",
+    "besttime_api_key": "BestTime.app API Key",
+    "save": "Salva",
+    "language": "Lingua",
+    "traffic_layer": "Livello Traffico",
+    "no_competitors": "Nessun concorrente trovato",
+    "rating": "Recensioni",
+    "distance": "Distanza",
+    "popularity": "Popolarità Oraria",
+    "peak_time": "Ora di picco",
+    "dwell_time": "Permanenza media",
+    "loading": "Caricamento...",
+    "error_api_keys": "Per favore, inserisci le chiavi API nelle impostazioni.",
+    "search_placeholder": "Inserisci un indirizzo...",
+    "category_placeholder": "Seleziona un settore",
+    "convenience_store": "Minimarket",
+    "grocery_or_supermarket": "Supermercato",
+    "cafe": "Bar / Caffè",
+    "restaurant": "Ristorante",
+    "pharmacy": "Farmacia"
+  }
+}

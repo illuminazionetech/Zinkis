@@ -1,0 +1,32 @@
+{
+  "translation": {
+    "app_title": "Zinkis - Location Intelligence",
+    "search": "Search",
+    "address": "Address",
+    "sector": "Commercial Sector",
+    "radius": "Radius (meters)",
+    "competitors": "Competitors",
+    "settings": "Settings",
+    "api_keys": "API Keys",
+    "google_api_key": "Google Maps API Key",
+    "besttime_api_key": "BestTime.app API Key",
+    "save": "Save",
+    "language": "Language",
+    "traffic_layer": "Traffic Layer",
+    "no_competitors": "No competitors found",
+    "rating": "Reviews",
+    "distance": "Distance",
+    "popularity": "Hourly Popularity",
+    "peak_time": "Peak Time",
+    "dwell_time": "Average Stay",
+    "loading": "Loading...",
+    "error_api_keys": "Please enter API keys in the settings.",
+    "search_placeholder": "Enter an address...",
+    "category_placeholder": "Select a sector",
+    "convenience_store": "Convenience Store",
+    "grocery_or_supermarket": "Supermarket",
+    "cafe": "Cafe",
+    "restaurant": "Restaurant",
+    "pharmacy": "Pharmacy"
+  }
+}
