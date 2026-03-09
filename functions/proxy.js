@@ -2,6 +2,15 @@ const axios = require('axios');
 
 const ALLOWED_DOMAINS = [
   'maps.googleapis.com',
+  'places.googleapis.com',
+  'airquality.googleapis.com',
+  'pollen.googleapis.com',
+  'solar.googleapis.com',
+  'addressvalidation.googleapis.com',
+  'routes.googleapis.com',
+  'tile.googleapis.com',
+  'roads.googleapis.com',
+  'timezone.googleapis.com',
   'besttime.app',
   'overpass-api.de',
   'nominatim.openstreetmap.org'
@@ -23,13 +32,13 @@ exports.handler = async (event, context) => {
     if (!ALLOWED_DOMAINS.includes(urlObj.hostname)) {
       return {
         statusCode: 403,
-        body: JSON.stringify({ error: 'Domain not allowed' }),
+        body: JSON.stringify({ error: 'Domain not allowed: ' + urlObj.hostname }),
       };
     }
 
     // Sanitize headers: only keep essential ones or common safe ones
     const safeHeaders = {};
-    const allowedHeaders = ['content-type', 'authorization', 'accept'];
+    const allowedHeaders = ['content-type', 'authorization', 'accept', 'x-goog-api-key', 'x-goog-fieldmask'];
 
     Object.keys(headers).forEach(key => {
       if (allowedHeaders.includes(key.toLowerCase())) {
@@ -57,7 +66,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(response.data),
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Goog-Api-Key, X-Goog-FieldMask',
         'Content-Type': 'application/json',
       },
     };

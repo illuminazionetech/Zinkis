@@ -17,11 +17,11 @@ const apiClient = {
     return response.data;
   },
 
-  post: async (targetUrl, data = {}) => {
+  post: async (targetUrl, data = {}, headers = {}) => {
     const url = new URL(proxyUrl, window.location.origin);
     url.searchParams.append('url', targetUrl);
 
-    const response = await axios.post(url.toString(), data);
+    const response = await axios.post(url.toString(), data, { headers });
     return response.data;
   }
 };
