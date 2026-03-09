@@ -49,6 +49,10 @@
     "verified": "Verificato",
     "incomplete": "Incompleto",
     "nearby_competitors_travel": "Distanza Concorrenti Vicini",
+    "hours_per_year": "h/anno",
+    "kwh_per_year": "kWh/anno",
+    "besttime_not_available": "Dati di affluenza BestTime non disponibili per questa location o chiave API mancante.",
+    "competitor_short": "Concorrente",
     "lang_code": "it"
   }
 }
