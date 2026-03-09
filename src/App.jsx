@@ -8,6 +8,15 @@ import CompetitorList from './components/CompetitorList';
 import { geocodeAddress } from './services/geocodingService';
 import { fetchCompetitors } from './services/poiService';
 import { fetchPopularity } from './services/bestTimeService';
+import {
+  fetchAirQuality,
+  fetchPollen,
+  fetchSolar,
+  fetchElevation,
+  fetchTimeZone,
+  validateAddress,
+  fetchDistanceMatrix
+} from './services/googleApiService';
 import { Globe, Settings, AlertTriangle } from 'lucide-react';
 import './i18n/config';
 
@@ -27,6 +36,17 @@ function App() {
   const [selectedCompetitor, setSelectedCompetitor] = useState(null);
   const [popularityData, setPopularityData] = useState(null);
 
+  // New State for Google APIs
+  const [environmentalData, setEnvironmentalData] = useState({
+    airQuality: null,
+    pollen: null,
+    solar: null,
+    elevation: null,
+    timeZone: null,
+    addressValidation: null,
+    distances: null
+  });
+
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'it' ? 'en' : 'it');
   };
@@ -43,17 +63,62 @@ function App() {
     setSearchRadius(radius);
     setPopularityData(null);
     setSelectedCompetitor(null);
+    setEnvironmentalData({
+      airQuality: null,
+      pollen: null,
+      solar: null,
+      elevation: null,
+      timeZone: null,
+      addressValidation: null,
+      distances: null
+    });
 
     try {
-      const geo = await geocodeAddress(address);
+      const geo = await geocodeAddress(address, apiKeys.google);
       if (geo) {
         setCurrentLocation(geo);
-        const comps = await fetchCompetitors(geo.lat, geo.lng, radius, sector, apiKeys.google);
-        setCompetitors(comps);
+
+        // Initial batch of parallel data fetching
+        const results = await Promise.allSettled([
+          fetchCompetitors(geo.lat, geo.lng, radius, sector, apiKeys.google),
+          fetchAirQuality(geo.lat, geo.lng, apiKeys.google),
+          fetchPollen(geo.lat, geo.lng, apiKeys.google),
+          fetchSolar(geo.lat, geo.lng, apiKeys.google),
+          fetchElevation(geo.lat, geo.lng, apiKeys.google),
+          fetchTimeZone(geo.lat, geo.lng, apiKeys.google),
+          validateAddress(address, apiKeys.google)
+        ]);
+
+        const [compsRes, aqRes, pollenRes, solarRes, elevRes, tzRes, addrRes] = results;
+
+        const foundCompetitors = compsRes.status === 'fulfilled' ? compsRes.value : { google: [], overpass: [] };
+        setCompetitors(foundCompetitors);
+
+        // Second batch: Distance Matrix (depends on competitors found)
+        let distances = null;
+        if (foundCompetitors.google.length > 0) {
+          const destinations = foundCompetitors.google.slice(0, 5).map(c => ({
+            lat: c.geometry.location.lat,
+            lng: c.geometry.location.lng
+          }));
+          distances = await fetchDistanceMatrix(geo, destinations, apiKeys.google);
+        }
+
+        setEnvironmentalData({
+          airQuality: aqRes.status === 'fulfilled' ? aqRes.value : null,
+          pollen: pollenRes.status === 'fulfilled' ? pollenRes.value : null,
+          solar: solarRes.status === 'fulfilled' ? solarRes.value : null,
+          elevation: elevRes.status === 'fulfilled' ? elevRes.value : null,
+          timeZone: tzRes.status === 'fulfilled' ? tzRes.value : null,
+          addressValidation: addrRes.status === 'fulfilled' ? addrRes.value : null,
+          distances: distances
+        });
+
       } else {
         setError("Indirizzo non trovato.");
       }
     } catch (err) {
+      console.error(err);
       setError("Si è verificato un errore durante la ricerca.");
     } finally {
       setIsLoading(false);
@@ -65,6 +130,8 @@ function App() {
     if (apiKeys.bestTime) {
       const popData = await fetchPopularity(comp.name, comp.address, apiKeys.bestTime);
       setPopularityData(popData);
+    } else {
+      setPopularityData(null);
     }
   };
 
@@ -115,7 +182,7 @@ function App() {
 
         <div className="absolute top-4 left-4 z-[950] max-w-sm pointer-events-none">
           <div className="pointer-events-auto space-y-4">
-             {/* If we had stats about the area, they'd go here */}
+             {/* Stats would go here */}
           </div>
         </div>
 
@@ -126,6 +193,7 @@ function App() {
             <AnalyticsPanel
               popularityData={popularityData}
               venueName={selectedCompetitor ? selectedCompetitor.name : ''}
+              environmentalData={environmentalData}
             />
           </div>
         </div>
