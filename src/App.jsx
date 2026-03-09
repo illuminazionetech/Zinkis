@@ -97,11 +97,15 @@ function App() {
         // Second batch: Distance Matrix (depends on competitors found)
         let distances = null;
         if (foundCompetitors.google.length > 0) {
-          const destinations = foundCompetitors.google.slice(0, 5).map(c => ({
-            lat: c.geometry.location.lat,
-            lng: c.geometry.location.lng
-          }));
-          distances = await fetchDistanceMatrix(geo, destinations, apiKeys.google);
+          try {
+            const destinations = foundCompetitors.google.slice(0, 5).map(c => ({
+              lat: c.geometry.location.lat,
+              lng: c.geometry.location.lng
+            }));
+            distances = await fetchDistanceMatrix(geo, destinations, apiKeys.google);
+          } catch (distErr) {
+            console.warn('Distance matrix failed, but continuing...', distErr);
+          }
         }
 
         setEnvironmentalData({
@@ -128,8 +132,13 @@ function App() {
   const handleSelectCompetitor = async (comp) => {
     setSelectedCompetitor(comp);
     if (apiKeys.bestTime) {
-      const popData = await fetchPopularity(comp.name, comp.address, apiKeys.bestTime);
-      setPopularityData(popData);
+      try {
+        const popData = await fetchPopularity(comp.name, comp.address, apiKeys.bestTime);
+        setPopularityData(popData);
+      } catch (bestTimeErr) {
+        console.warn('BestTime API failed:', bestTimeErr);
+        setPopularityData(null);
+      }
     } else {
       setPopularityData(null);
     }
@@ -189,11 +198,12 @@ function App() {
         {/* Dynamic Analytics & Competitors Sidebar (Right) */}
         <div className="absolute top-4 right-4 bottom-4 w-80 lg:w-96 hidden xl:flex flex-col gap-4 pointer-events-none pr-0">
           <div className="mt-16 pointer-events-auto bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 flex flex-col h-full overflow-hidden p-4">
-            <CompetitorList competitors={competitors} onSelect={handleSelectCompetitor} />
             <AnalyticsPanel
               popularityData={popularityData}
               venueName={selectedCompetitor ? selectedCompetitor.name : ''}
               environmentalData={environmentalData}
+              competitors={competitors}
+              onSelectCompetitor={handleSelectCompetitor}
             />
           </div>
         </div>
