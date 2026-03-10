@@ -1,211 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import SearchSidebar from './components/SearchSidebar';
 import MapComponent from './components/MapContainer';
 import SettingsPanel from './components/SettingsPanel';
 import AnalyticsPanel from './components/AnalyticsPanel';
-import CompetitorList from './components/CompetitorList';
-import { geocodeAddress } from './services/geocodingService';
-import { fetchCompetitors } from './services/poiService';
-import { fetchPopularity } from './services/bestTimeService';
-import {
-  fetchAirQuality,
-  fetchPollen,
-  fetchSolar,
-  fetchElevation,
-  fetchTimeZone,
-  validateAddress,
-  fetchDistanceMatrix
-} from './services/googleApiService';
-import { Globe, Settings, AlertTriangle } from 'lucide-react';
+import { useAnalysis } from './services/AnalysisContext';
+import { useLocationAnalysis } from './services/useLocationAnalysis';
+import { Globe, Settings, AlertTriangle, Menu, X, ChevronRight, BarChart2 } from 'lucide-react';
 import './i18n/config';
 
 function App() {
   const { t, i18n } = useTranslation();
+  const {
+    apiKeys, setApiKeys, isLoading, error, setError,
+    currentLocation, competitors, searchRadius,
+    selectedCompetitor, popularityData, environmentalData
+  } = useAnalysis();
+
+  const { handleSearch, handleSelectCompetitor } = useLocationAnalysis();
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [apiKeys, setApiKeys] = useState({
-    google: localStorage.getItem('google_api_key') || '',
-    bestTime: localStorage.getItem('besttime_api_key') || ''
-  });
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [competitors, setCompetitors] = useState({ google: [], overpass: [] });
-  const [searchRadius, setSearchRadius] = useState(500);
-  const [selectedCompetitor, setSelectedCompetitor] = useState(null);
-  const [popularityData, setPopularityData] = useState(null);
-
-  // New State for Google APIs
-  const [environmentalData, setEnvironmentalData] = useState({
-    airQuality: null,
-    pollen: null,
-    solar: null,
-    elevation: null,
-    timeZone: null,
-    addressValidation: null,
-    distances: null
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'it' ? 'en' : 'it');
   };
 
-  const handleSearch = async ({ address, sector, radius }) => {
-    if (!apiKeys.google) {
-      setError(t('error_api_keys'));
+  const onSearch = async (params) => {
+    const result = await handleSearch(params);
+    if (result.openSettings) {
       setIsSettingsOpen(true);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    setSearchRadius(radius);
-    setPopularityData(null);
-    setSelectedCompetitor(null);
-    setEnvironmentalData({
-      airQuality: null,
-      pollen: null,
-      solar: null,
-      elevation: null,
-      timeZone: null,
-      addressValidation: null,
-      distances: null
-    });
-
-    try {
-      const geo = await geocodeAddress(address, apiKeys.google);
-      if (geo) {
-        setCurrentLocation(geo);
-
-        // Initial batch of parallel data fetching
-        const results = await Promise.allSettled([
-          fetchCompetitors(geo.lat, geo.lng, radius, sector, apiKeys.google),
-          fetchAirQuality(geo.lat, geo.lng, apiKeys.google),
-          fetchPollen(geo.lat, geo.lng, apiKeys.google),
-          fetchSolar(geo.lat, geo.lng, apiKeys.google),
-          fetchElevation(geo.lat, geo.lng, apiKeys.google),
-          fetchTimeZone(geo.lat, geo.lng, apiKeys.google),
-          validateAddress(address, apiKeys.google)
-        ]);
-
-        const [compsRes, aqRes, pollenRes, solarRes, elevRes, tzRes, addrRes] = results;
-
-        const foundCompetitors = compsRes.status === 'fulfilled' ? compsRes.value : { google: [], overpass: [] };
-        setCompetitors(foundCompetitors);
-
-        // Second batch: Distance Matrix (depends on competitors found)
-        let distances = null;
-        if (foundCompetitors.google.length > 0) {
-          try {
-            const destinations = foundCompetitors.google.slice(0, 5).map(c => ({
-              lat: c.geometry.location.lat,
-              lng: c.geometry.location.lng
-            }));
-            distances = await fetchDistanceMatrix(geo, destinations, apiKeys.google);
-          } catch (distErr) {
-            console.warn('Distance matrix failed, but continuing...', distErr);
-          }
-        }
-
-        setEnvironmentalData({
-          airQuality: aqRes.status === 'fulfilled' ? aqRes.value : null,
-          pollen: pollenRes.status === 'fulfilled' ? pollenRes.value : null,
-          solar: solarRes.status === 'fulfilled' ? solarRes.value : null,
-          elevation: elevRes.status === 'fulfilled' ? elevRes.value : null,
-          timeZone: tzRes.status === 'fulfilled' ? tzRes.value : null,
-          addressValidation: addrRes.status === 'fulfilled' ? addrRes.value : null,
-          distances: distances
-        });
-
-      } else {
-        setError("Indirizzo non trovato.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Si è verificato un errore durante la ricerca.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectCompetitor = async (comp) => {
-    setSelectedCompetitor(comp);
-    if (apiKeys.bestTime) {
-      try {
-        const popData = await fetchPopularity(comp.name, comp.address, apiKeys.bestTime);
-        setPopularityData(popData);
-      } catch (bestTimeErr) {
-        console.warn('BestTime API failed:', bestTimeErr);
-        setPopularityData(null);
-      }
     } else {
-      setPopularityData(null);
+      // Auto-open analytics on search if results found
+      setIsAnalyticsOpen(true);
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
     }
   };
 
   const handleSaveKeys = (keys) => {
-    setApiKeys({
+    const newKeys = {
       google: keys.googleKey,
       bestTime: keys.bestTimeKey
-    });
+    };
+    setApiKeys(newKeys);
+    localStorage.setItem('google_api_key', keys.googleKey);
+    localStorage.setItem('besttime_api_key', keys.bestTimeKey);
     setError(null);
   };
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      <SearchSidebar onSearch={handleSearch} isLoading={isLoading} />
+      {/* Mobile Sidebar Toggle */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="lg:hidden fixed bottom-6 left-6 z-[1000] bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform"
+      >
+        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Navbar inside Main */}
-        <div className="absolute top-4 right-4 z-[950] flex items-center gap-2">
+      {/* Main Search Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-[900] transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out`}>
+        <SearchSidebar onSearch={onSearch} isLoading={isLoading} />
+      </aside>
+
+      {/* Main Viewport */}
+      <main className="flex-1 flex flex-col relative overflow-hidden h-full">
+        {/* Top Control Bar */}
+        <header className="absolute top-4 right-4 z-[850] flex items-center gap-3">
           <button
             onClick={toggleLanguage}
-            className="bg-white/90 backdrop-blur-sm border border-slate-200 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-sm font-bold text-slate-700"
+            className="bg-white/95 backdrop-blur-sm border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-sm font-bold text-slate-700"
           >
-            <Globe size={16} className="text-blue-600" />
-            {i18n.language.toUpperCase()}
+            <Globe size={18} className="text-blue-600" />
+            <span className="hidden sm:inline">{i18n.language.toUpperCase()}</span>
           </button>
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="bg-white/90 backdrop-blur-sm border border-slate-200 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-sm font-bold text-slate-700"
+            className="bg-white/95 backdrop-blur-sm border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-sm font-bold text-slate-700"
           >
-            <Settings size={16} className="text-slate-500" />
-            {t('settings')}
+            <Settings size={18} className="text-slate-500" />
+            <span className="hidden sm:inline">{t('settings')}</span>
           </button>
-        </div>
 
+          <button
+            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
+            className={`xl:hidden bg-white/95 backdrop-blur-sm border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-sm font-bold ${isAnalyticsOpen ? 'text-blue-600 border-blue-200 bg-blue-50/50' : 'text-slate-700'}`}
+          >
+            <BarChart2 size={18} />
+            <span className="hidden sm:inline">{t('analytics')}</span>
+          </button>
+        </header>
+
+        {/* Floating Notifications */}
         {error && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[950] bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg shadow-xl flex items-center gap-2 animate-bounce">
-            <AlertTriangle size={18} />
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[850] bg-red-50 border border-red-200 text-red-700 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+            <AlertTriangle size={20} className="shrink-0" />
             <span className="text-sm font-bold">{error}</span>
+            <button onClick={() => setError(null)} className="ml-2 hover:bg-red-100 p-1 rounded-full"><X size={14}/></button>
           </div>
         )}
 
-        <MapComponent
-          location={currentLocation}
-          competitors={competitors}
-          radius={searchRadius}
-        />
-
-        <div className="absolute top-4 left-4 z-[950] max-w-sm pointer-events-none">
-          <div className="pointer-events-auto space-y-4">
-             {/* Stats would go here */}
-          </div>
+        {/* Map Experience */}
+        <div className="flex-1 w-full h-full">
+          <MapComponent
+            location={currentLocation}
+            competitors={competitors}
+            radius={searchRadius}
+          />
         </div>
 
-        {/* Dynamic Analytics & Competitors Sidebar (Right) */}
-        <div className="absolute top-4 right-4 bottom-4 w-80 lg:w-96 hidden xl:flex flex-col gap-4 pointer-events-none pr-0">
-          <div className="mt-16 pointer-events-auto bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 flex flex-col h-full overflow-hidden p-4">
-            <AnalyticsPanel
-              popularityData={popularityData}
-              venueName={selectedCompetitor ? selectedCompetitor.name : ''}
-              environmentalData={environmentalData}
-              competitors={competitors}
-              onSelectCompetitor={handleSelectCompetitor}
-            />
+        {/* Responsive Analytics Drawer/Sidebar */}
+        <div className={`fixed xl:absolute inset-y-0 right-0 z-[950] w-full sm:w-96 xl:w-[420px] transform ${isAnalyticsOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-500 ease-in-out flex pointer-events-none xl:p-4`}>
+          <div className="pointer-events-auto bg-white flex flex-col w-full h-full shadow-2xl xl:rounded-3xl border-l xl:border border-slate-200 overflow-hidden">
+             {/* Header for Mobile Drawer */}
+             <div className="xl:hidden flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+               <h2 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                 <BarChart2 className="text-blue-600" />
+                 {t('analytics')}
+               </h2>
+               <button onClick={() => setIsAnalyticsOpen(false)} className="bg-white p-2 rounded-xl shadow-sm border border-slate-200 hover:bg-slate-50">
+                 <X size={20} />
+               </button>
+             </div>
+
+             {/* Content */}
+             <div className="flex-1 overflow-hidden p-4 lg:p-6">
+                <AnalyticsPanel
+                  popularityData={popularityData}
+                  venueName={selectedCompetitor ? selectedCompetitor.name : ''}
+                  environmentalData={environmentalData}
+                  competitors={competitors}
+                  onSelectCompetitor={handleSelectCompetitor}
+                />
+             </div>
           </div>
+
+          {/* Desktop Toggle Handle */}
+          <button
+            onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
+            className="hidden xl:flex absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 pointer-events-auto bg-white border border-slate-200 border-r-0 p-3 rounded-l-2xl shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.1)] group hover:bg-slate-50 transition-colors"
+          >
+            {isAnalyticsOpen ? <ChevronRight size={20} className="text-slate-400 group-hover:text-blue-600" /> : <BarChart2 size={20} className="text-slate-400 group-hover:text-blue-600" />}
+          </button>
         </div>
       </main>
 
