@@ -6,8 +6,7 @@ const AnalysisContext = createContext(null);
 export const AnalysisProvider = ({ children }) => {
   const { t } = useTranslation();
   const [apiKeys, setApiKeys] = useState({
-    google: localStorage.getItem('google_api_key') || '',
-    bestTime: localStorage.getItem('besttime_api_key') || ''
+    google: localStorage.getItem('google_api_key') || ''
   });
 
   const [isLoading, setIsLoading] = useState(false);

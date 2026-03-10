@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 
 // Fix for default marker icons in Leaflet
@@ -46,7 +47,7 @@ const MapComponent = ({ location, competitors, radius }) => {
   const [showTraffic, setShowTraffic] = useState(false);
 
   return (
-    <div className="flex-1 relative">
+    <div className="w-full h-full relative">
       <MapContainer
         center={location || [41.9028, 12.4964]} // Rome default
         zoom={13}

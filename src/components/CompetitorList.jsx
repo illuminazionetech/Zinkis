@@ -12,6 +12,9 @@ const CompetitorList = ({ competitors, onSelect }) => {
       address: c.vicinity,
       rating: c.rating,
       reviews: c.user_ratings_total,
+      price_level: c.price_level,
+      business_status: c.business_status,
+      opening_hours: c.opening_hours,
       source: 'Google'
     })),
     ...competitors.overpass.map((c, i) => ({
