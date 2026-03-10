@@ -1,45 +1,50 @@
 import axios from 'axios';
 
-const proxyUrl = '/.netlify/functions/proxy';
+const PROXY_PATH = '/.netlify/functions/proxy';
 
+/**
+ * apiClient handles all external requests through the Netlify proxy
+ * to avoid CORS issues and protect API keys in production.
+ */
 const apiClient = {
   get: async (targetUrl, params = {}) => {
-    // 1. Try via Proxy
     try {
-      const url = new URL(proxyUrl, window.location.origin);
-      const fullTargetUrl = new URL(targetUrl);
-      Object.keys(params).forEach(key => fullTargetUrl.searchParams.append(key, params[key]));
-      url.searchParams.set('url', fullTargetUrl.toString());
+      // Construct the target URL with its own params first
+      const targetUrlObj = new URL(targetUrl);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          targetUrlObj.searchParams.append(key, value);
+        }
+      });
 
-      const response = await axios.get(url.toString());
+      // Point to our local/Netlify proxy
+      const proxyUrl = new URL(PROXY_PATH, window.location.origin);
+      proxyUrl.searchParams.set('url', targetUrlObj.toString());
+
+      const response = await axios.get(proxyUrl.toString());
       return response.data;
-    } catch (proxyError) {
-      // If proxy fails (404 = not found, likely local dev), try direct
-      if (proxyError.response?.status === 404 || proxyError.code === 'ERR_NETWORK') {
-        console.warn('Proxy not available, falling back to direct API call');
-        const response = await axios.get(targetUrl, { params });
-        return response.data;
-      }
-      throw proxyError;
+    } catch (error) {
+      console.error(`API Client GET Error [${targetUrl}]:`, error.response?.data || error.message);
+      throw error;
     }
   },
 
   post: async (targetUrl, data = {}, headers = {}) => {
-    // 1. Try via Proxy
     try {
-      const url = new URL(proxyUrl, window.location.origin);
-      url.searchParams.set('url', targetUrl);
+      const proxyUrl = new URL(PROXY_PATH, window.location.origin);
+      proxyUrl.searchParams.set('url', targetUrl);
 
-      const response = await axios.post(url.toString(), data, { headers });
+      // Clean headers for proxying
+      const safeHeaders = {
+        'Content-Type': 'application/json',
+        ...headers
+      };
+
+      const response = await axios.post(proxyUrl.toString(), data, { headers: safeHeaders });
       return response.data;
-    } catch (proxyError) {
-      // If proxy fails, try direct
-      if (proxyError.response?.status === 404 || proxyError.code === 'ERR_NETWORK') {
-        console.warn('Proxy not available, falling back to direct API call');
-        const response = await axios.post(targetUrl, data, { headers });
-        return response.data;
-      }
-      throw proxyError;
+    } catch (error) {
+      console.error(`API Client POST Error [${targetUrl}]:`, error.response?.data || error.message);
+      throw error;
     }
   }
 };

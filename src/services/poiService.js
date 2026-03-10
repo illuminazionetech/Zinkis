@@ -3,9 +3,16 @@ import apiClient from './apiClient';
 const GOOGLE_PLACES_NEARBY_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-// Note: Keeping the existing Nearby Search for compatibility, but could also implement Places API (New)
-// The user asked to integrate ALL APIs, so I will ensure we use the best one available.
-
+/**
+ * fetchCompetitors searches for nearby businesses using Google Places and Overpass API (OSM)
+ *
+ * @param {number} lat - Latitude
+ * @param {number} lng - Longitude
+ * @param {number} radius - Search radius in meters
+ * @param {string} type - Commercial sector/type
+ * @param {string} googleApiKey - User's Google Maps API Key
+ * @returns {Promise<{google: Array, overpass: Array}>}
+ */
 export const fetchCompetitors = async (lat, lng, radius, type, googleApiKey) => {
   const results = {
     google: [],
@@ -21,16 +28,12 @@ export const fetchCompetitors = async (lat, lng, radius, type, googleApiKey) => 
         key: googleApiKey
       });
       results.google = googleData.results || [];
-
-      // If we have Google results, we prioritize them.
-      // User requested the system works with JUST the google key.
     } catch (error) {
       console.error('Error fetching Google Places:', error);
     }
   }
 
-  // Fallback or additional data from Overpass (OSM)
-  // We keep this as secondary data.
+  // Fallback or secondary data from Overpass (OSM)
   try {
     const osmQuery = `[out:json];node["shop"](around:${radius},${lat},${lng});out;`;
     const osmData = await apiClient.get(OVERPASS_URL, { data: osmQuery });
