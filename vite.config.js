@@ -28,20 +28,24 @@ export default defineConfig({
                   'Accept': 'application/json'
                 }
               });
-              res.writeHead(result.status, {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-              });
-              res.end(JSON.stringify(result.data));
+              if (!res.headersSent) {
+                res.writeHead(result.status, {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                });
+                res.end(JSON.stringify(result.data));
+              }
             } catch (error) {
-              res.writeHead(error.response?.status || 500, {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-              });
-              res.end(JSON.stringify({
-                error: error.message,
-                details: error.response?.data
-              }));
+              if (!res.headersSent) {
+                res.writeHead(error.response?.status || 500, {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                });
+                res.end(JSON.stringify({
+                  error: error.message,
+                  details: error.response?.data
+                }));
+              }
             }
             return false; // Handled by bypass
           }

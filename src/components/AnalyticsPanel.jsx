@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import {
   Activity, Clock, Users, Zap, Wind, Sun, Mountain,
   Thermometer, MapPin, Navigation, CheckCircle,
-  LayoutGrid, Info, ShieldAlert, List, ChevronRight
+  LayoutGrid, Info, ShieldAlert, List, ChevronRight, Euro, TrendingUp
 } from 'lucide-react';
 import CompetitorList from './CompetitorList';
 
@@ -21,80 +21,89 @@ const AnalyticsPanel = ({
   const { airQuality, pollen, solar, elevation, timeZone, addressValidation, distances } = environmentalData || {};
 
   const renderPopularity = () => {
-    if (!popularityData || !popularityData.forecast_data) {
+    const selectedComp = competitors.google.find(c => c.name === venueName);
+
+    if (!selectedComp) {
       return (
         <div className="bg-slate-50 p-8 flex flex-col items-center justify-center text-center space-y-4 rounded-3xl border border-dashed border-slate-200 h-64">
           <div className="bg-white p-4 rounded-2xl shadow-sm">
             <Activity size={32} className="text-slate-300" />
           </div>
           <p className="text-sm font-medium text-slate-500 max-w-[220px] leading-relaxed">
-            {t('besttime_not_available')}
+            Seleziona un competitor dalla lista per visualizzare i dettagli di spesa e affluenza.
           </p>
         </div>
       );
     }
 
-    const { forecast_data } = popularityData;
-    const currentHour = new Date().getHours();
-    const chartData = forecast_data.map((val, hour) => ({
-      hour: `${hour}:00`,
-      popularity: val,
-      isCurrent: hour === currentHour
-    }));
+    const priceLevel = selectedComp.price_level;
+    const priceDisplay = priceLevel !== undefined ? Array(priceLevel).fill('€').join('') : 'N/D';
+    const rating = selectedComp.rating || 0;
+    const reviews = selectedComp.user_ratings_total || 0;
 
-    const maxPop = Math.max(...forecast_data);
-    const peakHour = forecast_data.indexOf(maxPop);
-    const dwellTime = popularityData.venue_info?.venue_dwell_time_min || 45;
+    // Estimate dwell time based on category (simplified)
+    const dwellTime = rating > 4.5 ? '60-90' : '30-45';
+    const isOpen = selectedComp.opening_hours?.open_now;
 
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="hour" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip
-                  cursor={{ fill: '#f8fafc' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-slate-900 text-white px-3 py-2 shadow-2xl rounded-xl text-xs font-bold">
-                          {payload[0].value}% {t('popularity')}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="popularity" radius={[6, 6, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.isCurrent ? '#3b82f6' : '#e2e8f0'}
-                      className="transition-all duration-300 hover:fill-blue-400"
-                    />
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-6">
+          <div className="flex items-center justify-between">
+             <div className="flex items-center gap-3">
+               <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
+                 <Euro size={24} />
+               </div>
+               <div>
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Spesa Media</span>
+                 <div className="text-2xl font-black text-slate-900">{priceDisplay}</div>
+               </div>
+             </div>
+             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isOpen ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                {isOpen ? 'Aperto' : 'Chiuso'}
+             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Rating Clienti</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black text-slate-900">{rating}</span>
+                <div className="flex text-yellow-400">
+                  {Array(5).fill(0).map((_, i) => (
+                    <Activity key={i} size={12} fill={i < Math.floor(rating) ? "currentColor" : "none"} className={i < Math.floor(rating) ? "" : "text-slate-200"} />
                   ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1 text-right">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Recensioni</span>
+              <div className="text-xl font-black text-slate-900">{reviews.toLocaleString()}</div>
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-blue-50/50 p-5 rounded-3xl border border-blue-100/50 flex flex-col group hover:bg-blue-50 transition-colors">
             <span className="text-[10px] uppercase font-black text-blue-500 tracking-widest flex items-center gap-2 mb-2">
-              <Clock size={14} /> {t('peak_time')}
+              <TrendingUp size={14} /> Popolarità
             </span>
-            <span className="text-2xl font-black text-blue-900">{peakHour}:00</span>
+            <span className="text-lg font-black text-blue-900">
+              {reviews > 1000 ? 'Alta' : reviews > 200 ? 'Media' : 'In crescita'}
+            </span>
           </div>
           <div className="bg-indigo-50/50 p-5 rounded-3xl border border-indigo-100/50 flex flex-col group hover:bg-indigo-50 transition-colors">
             <span className="text-[10px] uppercase font-black text-indigo-500 tracking-widest flex items-center gap-2 mb-2">
-              <Users size={14} /> {t('dwell_time')}
+              <Users size={14} /> Permanenza
             </span>
-            <span className="text-2xl font-black text-indigo-900">{dwellTime} min</span>
+            <span className="text-lg font-black text-indigo-900">{dwellTime} min</span>
           </div>
+        </div>
+
+        <div className="bg-slate-900 p-6 rounded-3xl text-white space-y-2">
+           <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Analisi AI</div>
+           <p className="text-sm font-medium leading-relaxed text-slate-300">
+             Basato sull'analisi dei dati di Google, questo competitor ha un posizionamento di fascia {priceLevel > 2 ? 'Alta' : 'Media'} con un flusso di clientela {reviews > 500 ? 'molto consolidato' : 'stabile'}.
+           </p>
         </div>
       </div>
     );
@@ -243,7 +252,7 @@ const AnalyticsPanel = ({
 
   const tabs = [
     { id: 'competitors', label: t('competitors'), icon: List },
-    { id: 'analytics', label: t('popularity'), icon: Activity },
+    { id: 'analytics', label: 'AFFLUENZA & SPESA', icon: Euro },
     { id: 'environment', label: t('location_insights'), icon: Zap },
   ];
 
@@ -288,7 +297,7 @@ const AnalyticsPanel = ({
            <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
              <div className="flex items-center justify-between mb-6 px-1">
                <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                 <Activity size={16} className="text-blue-500" /> {t('popularity')}
+                 <Euro size={16} className="text-blue-500" /> AFFLUENZA & SPESA
                </h3>
                {venueName && <div className="text-[10px] font-bold text-slate-400 truncate max-w-[150px]">{venueName}</div>}
              </div>

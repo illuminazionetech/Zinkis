@@ -42,12 +42,10 @@ function App() {
 
   const handleSaveKeys = (keys) => {
     const newKeys = {
-      google: keys.googleKey,
-      bestTime: keys.bestTimeKey
+      google: keys.googleKey
     };
     setApiKeys(newKeys);
     localStorage.setItem('google_api_key', keys.googleKey);
-    localStorage.setItem('besttime_api_key', keys.bestTimeKey);
     setError(null);
   };
 

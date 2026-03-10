@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 
 const GOOGLE_PLACES_NEARBY_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
+const GOOGLE_PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
@@ -27,7 +28,26 @@ export const fetchCompetitors = async (lat, lng, radius, type, googleApiKey) => 
         type,
         key: googleApiKey
       });
-      results.google = googleData.results || [];
+
+      const basicResults = googleData.results || [];
+
+      // Enrich top 5 results with details (price level, business status, etc.)
+      const enrichedResults = await Promise.all(
+        basicResults.slice(0, 8).map(async (place) => {
+          try {
+            const details = await apiClient.get(GOOGLE_PLACES_DETAILS_URL, {
+              place_id: place.place_id,
+              fields: 'price_level,rating,user_ratings_total,business_status,vicinity,name,geometry,opening_hours',
+              key: googleApiKey
+            });
+            return { ...place, ...details.result };
+          } catch (e) {
+            return place;
+          }
+        })
+      );
+
+      results.google = enrichedResults.length > 0 ? enrichedResults : basicResults;
     } catch (error) {
       console.error('Error fetching Google Places:', error);
     }
