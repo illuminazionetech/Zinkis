@@ -3,9 +3,7 @@
 > vite
 
 
-  VITE v5.4.21  ready in 438 ms
+  VITE v5.4.21  ready in 433 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
-10:59:55 PM [vite] hmr update /src/index.css
-11:00:44 PM [vite] hmr update /src/components/MapContainer.jsx, /src/index.css
