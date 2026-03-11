@@ -10,9 +10,15 @@ import {
   validateAddress,
   fetchDistanceMatrix
 } from './googleApiService';
+import {
+  fetchAirQualityFree,
+  fetchElevationFree,
+  fetchDistancesFree,
+  fetchTimeZoneFree
+} from './environmentalService';
 
 // Fallback API Key (Note: In a real app this should be handled by the backend)
-const DEFAULT_GOOGLE_KEY = 'YOUR_DEFAULT_API_KEY_HERE';
+const DEFAULT_GOOGLE_KEY = ''; // Removed default key as per user request to use free APIs
 
 export const useLocationAnalysis = () => {
   const {
@@ -47,37 +53,48 @@ export const useLocationAnalysis = () => {
     });
 
     try {
-      const geo = await geocodeAddress(address, activeKey);
+      const geo = await geocodeAddress(address);
       if (geo) {
         setCurrentLocation(geo);
 
-        // First batch: Geolocation-based data
-        const results = await Promise.allSettled([
+        // Fetch data using both Google (if key available) and Free alternatives
+        const fetchPromises = [
           fetchCompetitors(geo.lat, geo.lng, radius, sector, activeKey),
-          fetchAirQuality(geo.lat, geo.lng, activeKey),
-          fetchPollen(geo.lat, geo.lng, activeKey),
-          fetchSolar(geo.lat, geo.lng, activeKey),
-          fetchElevation(geo.lat, geo.lng, activeKey),
-          fetchTimeZone(geo.lat, geo.lng, activeKey),
-          validateAddress(address, activeKey)
-        ]);
+          activeKey ? fetchAirQuality(geo.lat, geo.lng, activeKey) : fetchAirQualityFree(geo.lat, geo.lng),
+          activeKey ? fetchPollen(geo.lat, geo.lng, activeKey) : Promise.resolve(null),
+          activeKey ? fetchSolar(geo.lat, geo.lng, activeKey) : Promise.resolve(null),
+          activeKey ? fetchElevation(geo.lat, geo.lng, activeKey) : fetchElevationFree(geo.lat, geo.lng),
+          activeKey ? fetchTimeZone(geo.lat, geo.lng, activeKey) : fetchTimeZoneFree(geo.lat, geo.lng),
+          activeKey ? validateAddress(address, activeKey) : Promise.resolve(null)
+        ];
+
+        const results = await Promise.allSettled(fetchPromises);
 
         const [compsRes, aqRes, pollenRes, solarRes, elevRes, tzRes, addrRes] = results;
 
         const foundCompetitors = compsRes.status === 'fulfilled' ? compsRes.value : { google: [], overpass: [] };
         setCompetitors(foundCompetitors);
 
-        // Second batch: Logistics/Distances (requires results from the first)
+        // Second batch: Logistics/Distances
         let distances = null;
-        if (foundCompetitors.google.length > 0) {
+        const allComps = [...foundCompetitors.google, ...foundCompetitors.overpass.map(o => ({
+          geometry: { location: { lat: o.lat, lng: o.lon } }
+        }))];
+
+        if (allComps.length > 0) {
           try {
-            const destinations = foundCompetitors.google.slice(0, 5).map(c => ({
+            const destinations = allComps.slice(0, 5).map(c => ({
               lat: c.geometry.location.lat,
               lng: c.geometry.location.lng
             }));
-            distances = await fetchDistanceMatrix(geo, destinations, activeKey);
+
+            if (activeKey) {
+              distances = await fetchDistanceMatrix(geo, destinations, activeKey);
+            } else {
+              distances = await fetchDistancesFree(geo, destinations);
+            }
           } catch (distErr) {
-            console.warn('Distance matrix fetch partially failed', distErr);
+            console.warn('Distance fetch partially failed', distErr);
           }
         }
 
@@ -105,9 +122,6 @@ export const useLocationAnalysis = () => {
 
   const handleSelectCompetitor = async (comp) => {
     setSelectedCompetitor(comp);
-    // Since we no longer use BestTime, popularityData could be derived from
-    // user_ratings_total or other Google metrics if needed,
-    // or just set to null as we handle it in AnalyticsPanel.
     setPopularityData(null);
   };
 

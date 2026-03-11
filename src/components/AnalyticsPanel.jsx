@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import {
   Activity, Clock, Users, Zap, Wind, Sun, Mountain,
   Thermometer, MapPin, Navigation, CheckCircle,
-  LayoutGrid, Info, ShieldAlert, List, ChevronRight, Euro, TrendingUp
+  LayoutGrid, Info, ShieldAlert, List, ChevronRight, Euro, TrendingUp, Globe, Phone
 } from 'lucide-react';
 import CompetitorList from './CompetitorList';
 
@@ -21,7 +21,9 @@ const AnalyticsPanel = ({
   const { airQuality, pollen, solar, elevation, timeZone, addressValidation, distances } = environmentalData || {};
 
   const renderPopularity = () => {
-    const selectedComp = competitors.google.find(c => c.name === venueName);
+    const selectedComp =
+      competitors.google.find(c => c.name === venueName) ||
+      competitors.overpass.find(c => (c.tags.name || 'Unknown') === venueName);
 
     if (!selectedComp) {
       return (
@@ -36,14 +38,20 @@ const AnalyticsPanel = ({
       );
     }
 
-    const priceLevel = selectedComp.price_level;
+    const isGoogle = !!selectedComp.place_id;
+    const priceLevel = isGoogle ? selectedComp.price_level : undefined;
     const priceDisplay = priceLevel !== undefined ? Array(priceLevel).fill('€').join('') : 'N/D';
-    const rating = selectedComp.rating || 0;
-    const reviews = selectedComp.user_ratings_total || 0;
+    const rating = isGoogle ? (selectedComp.rating || 0) : 0;
+    const reviews = isGoogle ? (selectedComp.user_ratings_total || 0) : 0;
+
+    // OSM specific info
+    const website = !isGoogle ? selectedComp.tags.website : selectedComp.website;
+    const phone = !isGoogle ? selectedComp.tags.phone : selectedComp.formatted_phone_number;
+    const openingHours = !isGoogle ? selectedComp.tags.opening_hours : (selectedComp.opening_hours?.weekday_text?.join(', '));
 
     // Estimate dwell time based on category (simplified)
     const dwellTime = rating > 4.5 ? '60-90' : '30-45';
-    const isOpen = selectedComp.opening_hours?.open_now;
+    const isOpen = isGoogle ? selectedComp.opening_hours?.open_now : undefined;
 
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -58,16 +66,18 @@ const AnalyticsPanel = ({
                  <div className="text-2xl font-black text-slate-900">{priceDisplay}</div>
                </div>
              </div>
-             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isOpen ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                {isOpen ? 'Aperto' : 'Chiuso'}
-             </div>
+             {isOpen !== undefined && (
+               <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isOpen ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                  {isOpen ? 'Aperto' : 'Chiuso'}
+               </div>
+             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Rating Clienti</span>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-black text-slate-900">{rating}</span>
+                <span className="text-xl font-black text-slate-900">{rating || '--'}</span>
                 <div className="flex text-yellow-400">
                   {Array(5).fill(0).map((_, i) => (
                     <Activity key={i} size={12} fill={i < Math.floor(rating) ? "currentColor" : "none"} className={i < Math.floor(rating) ? "" : "text-slate-200"} />
@@ -77,9 +87,33 @@ const AnalyticsPanel = ({
             </div>
             <div className="space-y-1 text-right">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Recensioni</span>
-              <div className="text-xl font-black text-slate-900">{reviews.toLocaleString()}</div>
+              <div className="text-xl font-black text-slate-900">{reviews > 0 ? reviews.toLocaleString() : 'N/D'}</div>
             </div>
           </div>
+
+          {(website || phone || openingHours) && (
+            <div className="pt-4 border-t border-slate-50 space-y-3">
+               {phone && (
+                 <div className="flex items-center gap-3 text-xs text-slate-600 font-medium">
+                   <Phone size={14} className="text-slate-400" /> {phone}
+                 </div>
+               )}
+               {website && (
+                 <div className="flex items-center gap-3 text-xs text-blue-600 font-bold truncate">
+                   <Globe size={14} className="text-blue-400" />
+                   <a href={website.startsWith('http') ? website : `https://${website}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                     {website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                   </a>
+                 </div>
+               )}
+               {openingHours && (
+                 <div className="flex items-start gap-3 text-xs text-slate-500 italic">
+                   <Clock size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                   <span className="line-clamp-2">{openingHours}</span>
+                 </div>
+               )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -100,9 +134,12 @@ const AnalyticsPanel = ({
         </div>
 
         <div className="bg-slate-900 p-6 rounded-3xl text-white space-y-2">
-           <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Analisi AI</div>
+           <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Analisi Business</div>
            <p className="text-sm font-medium leading-relaxed text-slate-300">
-             Basato sull'analisi dei dati di Google, questo competitor ha un posizionamento di fascia {priceLevel > 2 ? 'Alta' : 'Media'} con un flusso di clientela {reviews > 500 ? 'molto consolidato' : 'stabile'}.
+             {isGoogle
+               ? `Basato sui dati Google, questo competitor ha un posizionamento di fascia ${priceLevel > 2 ? 'Alta' : 'Media'} con un flusso di clientela ${reviews > 500 ? 'molto consolidato' : 'stabile'}.`
+               : `Dati basati su OpenStreetMap. Questo competitor è situato nell'area analizzata e contribuisce all'attrattività commerciale locale.`
+             }
            </p>
         </div>
       </div>
@@ -136,20 +173,22 @@ const AnalyticsPanel = ({
         </div>
 
         {/* Address Validation */}
-        <div className={`p-5 rounded-3xl border col-span-2 flex items-center justify-between shadow-sm transition-all ${isAddressValid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-amber-50/50 border-amber-100'}`}>
-           <div className="flex items-center gap-4">
-             <div className={`p-3 rounded-2xl ${isAddressValid ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                <MapPin size={20} />
-             </div>
-             <div>
-               <span className={`text-[10px] font-black uppercase tracking-widest block mb-0.5 ${isAddressValid ? 'text-emerald-700' : 'text-amber-700'}`}>{t('address_quality')}</span>
-               <div className={`text-sm font-black ${isAddressValid ? 'text-emerald-900' : 'text-amber-900'}`}>
-                 {isAddressValid ? t('verified') : t('incomplete')}
+        {addressValidation && (
+          <div className={`p-5 rounded-3xl border col-span-2 flex items-center justify-between shadow-sm transition-all ${isAddressValid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-amber-50/50 border-amber-100'}`}>
+             <div className="flex items-center gap-4">
+               <div className={`p-3 rounded-2xl ${isAddressValid ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <MapPin size={20} />
+               </div>
+               <div>
+                 <span className={`text-[10px] font-black uppercase tracking-widest block mb-0.5 ${isAddressValid ? 'text-emerald-700' : 'text-amber-700'}`}>{t('address_quality')}</span>
+                 <div className={`text-sm font-black ${isAddressValid ? 'text-emerald-900' : 'text-amber-900'}`}>
+                   {isAddressValid ? t('verified') : t('incomplete')}
+                 </div>
                </div>
              </div>
-           </div>
-           {isAddressValid && <CheckCircle size={20} className="text-emerald-500 mr-2" />}
-        </div>
+             {isAddressValid && <CheckCircle size={20} className="text-emerald-500 mr-2" />}
+          </div>
+        )}
 
         {/* Air Quality */}
         <div className="bg-white p-5 rounded-3xl border border-slate-100 space-y-3 shadow-sm group hover:border-emerald-100 transition-colors">
@@ -214,22 +253,22 @@ const AnalyticsPanel = ({
         )}
 
         {/* Solar */}
-        <div className="bg-yellow-50/30 p-6 rounded-3xl border border-yellow-100 col-span-2 space-y-4 shadow-sm">
-           <div className="flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <div className="bg-yellow-100 p-2 rounded-xl text-yellow-600">
-                  <Sun size={20} />
-                </div>
-                <span className="text-xs font-black text-yellow-900 uppercase tracking-widest">{t('solar_potential')}</span>
+        {solar && (
+          <div className="bg-yellow-50/30 p-6 rounded-3xl border border-yellow-100 col-span-2 space-y-4 shadow-sm">
+             <div className="flex items-center justify-between">
+               <div className="flex items-center gap-3">
+                  <div className="bg-yellow-100 p-2 rounded-xl text-yellow-600">
+                    <Sun size={20} />
+                  </div>
+                  <span className="text-xs font-black text-yellow-900 uppercase tracking-widest">{t('solar_potential')}</span>
+               </div>
+               {solar?.maxSunshineHoursPerYear && (
+                  <span className="text-[10px] bg-yellow-200/50 text-yellow-800 px-3 py-1.5 rounded-full font-black border border-yellow-200">
+                    {Math.round(solar.maxSunshineHoursPerYear)} {t('hours_per_year')}
+                  </span>
+               )}
              </div>
-             {solar?.maxSunshineHoursPerYear && (
-                <span className="text-[10px] bg-yellow-200/50 text-yellow-800 px-3 py-1.5 rounded-full font-black border border-yellow-200">
-                  {Math.round(solar.maxSunshineHoursPerYear)} {t('hours_per_year')}
-                </span>
-             )}
-           </div>
 
-           {solar ? (
              <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/80 p-4 rounded-2xl border border-yellow-100 shadow-sm">
                   <div className="text-xl font-black text-yellow-900">{solar.countOfPanels || 0}</div>
@@ -240,12 +279,8 @@ const AnalyticsPanel = ({
                   <div className="text-[10px] text-yellow-700 font-bold uppercase tracking-tight">{t('kwh_per_year')}</div>
                 </div>
              </div>
-           ) : (
-             <div className="text-xs text-yellow-700 italic flex items-center gap-3 bg-white/50 p-4 rounded-2xl border border-yellow-100/50">
-               <ShieldAlert size={18} className="text-yellow-500 shrink-0" /> {t('no_solar_data')}
-             </div>
-           )}
-        </div>
+          </div>
+        )}
       </div>
     );
   };

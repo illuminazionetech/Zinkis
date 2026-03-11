@@ -13,7 +13,11 @@ const ALLOWED_DOMAINS = [
   'timezone.googleapis.com',
   'besttime.app',
   'overpass-api.de',
-  'nominatim.openstreetmap.org'
+  'nominatim.openstreetmap.org',
+  'api.openaq.org',
+  'api.open-elevation.com',
+  'router.project-osrm.org',
+  'api.teleport.org'
 ];
 
 exports.handler = async (event, context) => {

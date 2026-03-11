@@ -5,19 +5,15 @@ import { useTranslation } from 'react-i18next';
 const SettingsPanel = ({ isOpen, onClose, onSave }) => {
   const { t } = useTranslation();
   const [googleKey, setGoogleKey] = useState('');
-  const [bestTimeKey, setBestTimeKey] = useState('');
 
   useEffect(() => {
     const savedGoogle = localStorage.getItem('google_api_key') || '';
-    const savedBestTime = localStorage.getItem('besttime_api_key') || '';
     setGoogleKey(savedGoogle);
-    setBestTimeKey(savedBestTime);
   }, []);
 
   const handleSave = () => {
     localStorage.setItem('google_api_key', googleKey);
-    localStorage.setItem('besttime_api_key', bestTimeKey);
-    onSave({ googleKey, bestTimeKey });
+    onSave({ googleKey });
     onClose();
   };
 
@@ -64,7 +60,7 @@ const SettingsPanel = ({ isOpen, onClose, onSave }) => {
           <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
              <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
              <p className="text-[11px] text-blue-800 leading-relaxed font-medium">
-               Le chiavi API sono salvate localmente nel tuo browser. Se non inserite, l'applicazione utilizzerà una chiave di fallback predefinita.
+               L'app ora utilizza sorgenti dati gratuite (OSM, Nominatim, OpenAQ). Inserisci una chiave Google Maps per abilitare dati premium come Visione Solare, Validazione Indirizzi avanzata e foto Google Places.
              </p>
           </div>
         </div>
